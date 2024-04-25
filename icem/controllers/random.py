@@ -1,4 +1,4 @@
-from controllers.abstract_controller import Controller
+from icem.controllers.abstract_controller import Controller
 
 
 class RndController(Controller):

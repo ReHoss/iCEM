@@ -1,8 +1,10 @@
-import gym.envs.classic_control as gym_classic
-import gym.envs.box2d as gym_box
+import gymnasium.envs.classic_control as gym_classic
+import gymnasium.envs.box2d as gym_box
 
 from .abstract_environments import *
-from helpers import sin_and_cos_to_radians
+
+
+# from helpers import sin_and_cos_to_radians
 
 
 class DiscreteActionMountainCar(GroundTruthSupportEnv, DiscreteActionReshaper, gym_classic.MountainCarEnv):
@@ -52,10 +54,11 @@ class ContinuousLunarLander(EnvWithDefaults, gym_box.LunarLanderContinuous):
 
 class ContinuousPendulum(GroundTruthSupportEnv, gym_classic.PendulumEnv):
     def set_GT_state(self, state):
-        cos_theta, sin_theta, theta_dot = state
-        theta = sin_and_cos_to_radians(sin_theta, cos_theta)
+        # cos_theta, sin_theta, theta_dot = state
+        assert state.ndim == 1, "1-D np.array is expected in set_GT_state for Pendulum"
+        assert state.shape[0] == 2
         # noinspection PyAttributeOutsideInit
-        self.state = theta, theta_dot
+        self.state = state
 
     def get_GT_state(self):
         return self.state
@@ -69,7 +72,11 @@ class ContinuousPendulum(GroundTruthSupportEnv, gym_classic.PendulumEnv):
 
     def cost_fn(self, observation, action, next_obs):
         cos_theta, sin_theta, th_dot = observation.T
-        th = sin_and_cos_to_radians(sin_theta, cos_theta)
+        # th = sin_and_cos_to_radians(sin_theta, cos_theta)
+        th = np.arctan2(sin_theta, cos_theta)
         costs = self.angle_normalize(th) ** 2 + 0.1 * th_dot ** 2 + 0.001 * (np.squeeze(action) ** 2)
 
         return costs
+
+    def seed(self, seed=None):
+        pass

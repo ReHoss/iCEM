@@ -1,15 +1,12 @@
-import os
-import pickle
 from warnings import warn
 
 import allogger
 import colorednoise
 import numpy as np
-from gym import spaces
-from scipy.stats import truncnorm
+from gymnasium import spaces
 
-from controllers.mpc import MpcController
-from misc.rolloutbuffer import RolloutBuffer
+from icem.controllers.mpc import MpcController
+from icem.misc.rolloutbuffer import RolloutBuffer
 
 
 # our improved CEM
@@ -54,7 +51,7 @@ class MpcICem(MpcController):
     def get_init_std(self, relative):
         if relative:
             return np.ones(self.dim_samples) * \
-                   (self.env.action_space.high - self.env.action_space.low) / 2.0 * self.init_std
+                (self.env.action_space.high - self.env.action_space.low) / 2.0 * self.init_std
         else:
             return self.init_std * np.ones(self.dim_samples)
 
@@ -162,16 +159,15 @@ class MpcICem(MpcController):
 
         executed_action = simulated_paths[best_traj_idx]["actions"][0]
 
-        ### Shift initialization ###
+        # ## Shift initialization ###
         # Shift mean time-wise
         self.mean[:-1] = self.mean[1:]
 
         # compute new action (default is to preserve the last one)
-        last_predicted_ob = simulated_paths[best_traj_idx]["observations"][-1]
-        self.mean[-1] = self.compute_new_mean(obs=last_predicted_ob)
+        self.mean[-1] = self.compute_new_mean()
         ############################
 
-        ### initialization of std dev ###
+        # ## initialization of std dev ###
         self.std = self.get_init_std(True)
 
         self.logger.log(min(costs), key="Expected_trajectory_cost")
@@ -188,7 +184,7 @@ class MpcICem(MpcController):
                 self.forward_model.predict(observations=obs, states=self.forward_model_state, actions=executed_action)
         return executed_action
 
-    def compute_new_mean(self, obs):
+    def compute_new_mean(self):
         return self.mean[-1]
 
     def update_distributions(self, sampled_trajectories: RolloutBuffer, costs):

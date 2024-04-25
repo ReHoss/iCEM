@@ -5,16 +5,15 @@ from typing import Union
 from warnings import warn
 
 import allogger
-import colorednoise
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 from scipy.stats import truncnorm
 
-from controllers.abstract_controller import ModelBasedController, StatefulController, OpenLoopPolicy
-from environments.abstract_environments import GroundTruthSupportEnv
-from models import AbstractGroundTruthModel
-from misc.rolloutbuffer import RolloutBuffer
-from controllers.random import RndController
+from icem.controllers.abstract_controller import ModelBasedController, StatefulController, OpenLoopPolicy
+from icem.environments.abstract_environments import GroundTruthSupportEnv
+from icem.models import AbstractGroundTruthModel
+from icem.misc.rolloutbuffer import RolloutBuffer
+from icem.controllers.random import RndController
 
 
 # abstract MPC controller
@@ -181,7 +180,7 @@ class MpcCemStd(MpcController):
     def get_init_std(self, relative):
         if relative:
             return np.ones(self.dim_samples) * \
-                   (self.env.action_space.high - self.env.action_space.low) / 2.0 * self.init_std
+                (self.env.action_space.high - self.env.action_space.low) / 2.0 * self.init_std
         else:
             return self.init_std * np.ones(self.dim_samples)
 
@@ -239,8 +238,7 @@ class MpcCemStd(MpcController):
         # Shift mean time-wise
         if self.shift_means:
             self.mean[:-1] = self.mean[1:]
-            last_predicted_ob = simulated_paths[best_traj_idx]["observations"][-1]
-            self.mean[-1] = self.compute_new_mean(obs=last_predicted_ob)
+            self.mean[-1] = self.compute_new_mean()
         else:
             self.mean = np.zeros(self.dim_samples)
 
@@ -262,7 +260,7 @@ class MpcCemStd(MpcController):
                 self.forward_model.predict(observations=obs, states=self.forward_model_state, actions=executed_action)
         return executed_action
 
-    def compute_new_mean(self, obs):
+    def compute_new_mean(self):
         if self.like_levine:
             return self.mean[-1] * 0
         else:

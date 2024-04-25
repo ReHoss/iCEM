@@ -1,20 +1,19 @@
 import os
 import pickle
 import numpy as np
-from abc import ABC
 from pathlib import Path
 
-from misc.base_types import Controller, ForwardModel, Pretrainer
-from controllers.abstract_controller import TrainableController
-from misc.rolloutbuffer import RolloutBuffer
+from icem.misc.base_types import Controller, ForwardModel
+from icem.controllers.abstract_controller import TrainableController
+from icem.misc.rolloutbuffer import RolloutBuffer
 
 
-def pretrainer_from_string(trainer_name, trainer_params):
-    trainers_dict = {'trajectory': TrajectoryPretrainer
-                     }
-    if trainer_name not in trainers_dict:
-        raise KeyError(f"trainer name '{trainer_name}' not in dictionary entries: {trainers_dict.keys()}")
-    return trainers_dict[trainer_name](**trainer_params)
+# def pretrainer_from_string(trainer_name, trainer_params):
+#     trainers_dict = {'trajectory': TrajectoryPretrainer
+#                      }
+#     if trainer_name not in trainers_dict:
+#         raise KeyError(f"trainer name '{trainer_name}' not in dictionary entries: {trainers_dict.keys()}")
+#     return trainers_dict[trainer_name](**trainer_params)
 
 
 def _parse_no_yes_auto(argument):

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
-from misc.base_types import Controller, ForwardModel
-from misc.rolloutbuffer import RolloutBuffer, Rollout
+from icem.misc.base_types import Controller, ForwardModel
+from icem.misc.rolloutbuffer import RolloutBuffer, Rollout
 
 
 class ForwardModelWithDefaults(ForwardModel, ABC):

@@ -1,5 +1,4 @@
 import os
-import sys
 from warnings import warn
 import numpy as np
 from itertools import chain
@@ -10,17 +9,17 @@ from tqdm import tqdm
 
 import allogger
 
-from misc.base_types import Controller, Env
-from environments.abstract_environments import GroundTruthSupportEnv, GoalSpaceEnvironmentInterface
-from misc.helpers import tqdm_context
-from misc.rolloutbuffer import Rollout
-# noinspection PyUnresolvedReferences
-from misc.rolloutbuffer import RolloutBuffer, _CustomList  # just for pickling
-from misc.seeding import Seeding
-from misc.parallel_utils import CloudPickleWrapper, clear_mpi_env_vars
-from models import GroundTruthModel
-from controllers.abstract_controller import ParallelController
+import gymnasium
 
+from icem.misc.base_types import Controller
+from icem.environments.abstract_environments import GroundTruthSupportEnv, GoalSpaceEnvironmentInterface
+from icem.misc.helpers import tqdm_context
+from icem.misc.rolloutbuffer import Rollout
+# noinspection PyUnresolvedReferences
+from icem.misc.rolloutbuffer import RolloutBuffer, _CustomList  # just for pickling
+from icem.misc.seeding import Seeding
+from icem.misc.parallel_utils import CloudPickleWrapper
+from icem.controllers.abstract_controller import ParallelController
 
 class RolloutManager:
     dir_name: str
@@ -54,7 +53,7 @@ class RolloutManager:
             ]
             for p in self.ps:
                 p.daemon = True  # if the main process crashes, we should not cause things to hang
-                with clear_mpi_env_vars():
+                with gymnasium.vector.utils.misc.clear_mpi_env_vars():
                     p.start()
 
     def __del__(self):
@@ -162,6 +161,8 @@ class RolloutManager:
             ob = start_ob
         else:
             ob = env.reset_with_mode(mode)
+            if isinstance(ob, tuple):
+                ob = ob[0]
 
         if policy.has_state:
             policy.beginning_of_rollout(observation=ob, state=RolloutManager.supply_env_state(env, use_env_states),
@@ -185,7 +186,14 @@ class RolloutManager:
             state = RolloutManager.supply_env_state(env, use_env_states)
             try:
                 ac = policy.get_action(ob, state=state, mode=mode)
-                next_ob, rew, done, _ = env.step(ac)
+                # CHANGES @ReHoss: Start - unpacking tuple (Gym vs. Gymnasium 5 arguments)
+                # This allows to ignore the last 2 or 3 arguments of the step function
+                tuple_step: tuple = env.step(ac)
+                next_ob = tuple_step[0]
+                rew = tuple_step[1]
+                done = tuple_step[2]
+                # next_ob, rew, done, _ = env.step(ac)
+                # CHANGES @ReHoss: End
             except Exception as e:
                 if e.__class__.__name__ == "MujocoException":
                     warn(f"Got MujocoException {e}. Skipping to next rollout.")
@@ -228,7 +236,7 @@ class RolloutManager:
 
     # we don't have parallel execution for DM envs yet
     def sample_deepmindsuite(self, policy, logger, render: bool, mode, start_ob, start_state):
-        from environments.dm2gym import DmControlWrapper
+        from icem.environments.dm2gym import DmControlWrapper
         assert isinstance(self.env, DmControlWrapper)
         self.env.dmcenv._step_limit = float("inf")
         if start_ob is not None and isinstance(self.env, GroundTruthSupportEnv):
@@ -286,16 +294,17 @@ class RolloutManager:
             from dm_control import viewer
 
             def gen():
-                yield from rollout["actions"]
+                yield from rollout.rollout_data["actions"]
 
             it = gen()
 
+            # noinspection PyUnusedLocal
             def replay_actions(time_step):
                 del time_step
                 return next(it)
 
             self.env.dmcenv._step_count = 0
-            self.env.dmcenv._step_limit = len(rollout["actions"])
+            self.env.dmcenv._step_limit = len(rollout.rollout_data["actions"])
             self.env.dmcenv.physics.set_state(self.init_physics_state)  # with _?
             self.env.dmcenv.physics.after_reset()
             viewer.launch(environment_loader=self.env.dmcenv, policy=replay_actions)
@@ -313,7 +322,7 @@ class RolloutManager:
     def worker(seed, worker_id, remote, parent_remote, env_wrapper):
         parent_remote.close()
         orig_env = env_wrapper.x
-        from environments import env_from_string
+        from icem.environments import env_from_string
         env = env_from_string(orig_env.name, **orig_env.init_kwargs)
         Seeding.set_seed(seed + worker_id, env=env)
 
@@ -345,25 +354,24 @@ class RolloutManager:
             remote.close()
 
 
-class ImitationLearning:
-    def __init__(self, tqdm_cntxt, **params):
-        self.tqdm_context = tqdm_cntxt
-        self._parse_params(**params)
-
-    def _parse_params(self, *, expert_controller, expert_params, do_rollouts, dagger,
-                      use_policy_guidance_for_supervision,
-                      dagger_params=None):
-        self.expert_controller_name = expert_controller
-        self.expert_params = expert_params
-        self.use_policy_guidance_for_supervision = use_policy_guidance_for_supervision
-
-        self.dagger = dagger_from_string(dagger, dagger_params)
-
-        self.do_rollouts = do_rollouts
-        assert self.do_rollouts or dagger != "Smart", "Expert rollouts are needed for SmartDagger"
-
-    def relabel_rollouts(self, *, expert_controller, policy_rollouts, expert_rollouts, policy, forward_model,
-                         training_data):
-        return self.dagger.relabel_rollouts(expert_controller=expert_controller, policy_rollouts=policy_rollouts,
-                                            expert_rollouts=expert_rollouts, policy=policy, training_data=training_data,
-                                            forward_model=forward_model, tqdm_context=self.tqdm_context)
+# class ImitationLearning:
+#     def __init__(self, tqdm_cntxt, **params):
+#         self.tqdm_context = tqdm_cntxt
+#         self._parse_params(**params)
+#
+#     def _parse_params(self, *, expert_controller, expert_params, do_rollouts, dagger,
+#                       use_policy_guidance_for_supervision,
+#                       dagger_params=None):
+#         self.expert_controller_name = expert_controller
+#         self.expert_params = expert_params
+#         self.use_policy_guidance_for_supervision = use_policy_guidance_for_supervision
+#
+#         self.dagger = dagger_from_string(dagger, dagger_params)
+#
+#         self.do_rollouts = do_rollouts
+#         assert self.do_rollouts or dagger != "Smart", "Expert rollouts are needed for SmartDagger"
+#
+# def relabel_rollouts(self, *, expert_controller, policy_rollouts, expert_rollouts, policy, forward_model,
+# training_data): return self.dagger.relabel_rollouts(expert_controller=expert_controller,
+# policy_rollouts=policy_rollouts, expert_rollouts=expert_rollouts, policy=policy, training_data=training_data,
+# forward_model=forward_model, tqdm_context=self.tqdm_context)

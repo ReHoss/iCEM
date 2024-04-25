@@ -1,17 +1,16 @@
 import multiprocessing as mp
-import os
-from contextlib import contextmanager
 from itertools import chain
 from typing import Sequence
 
 import numpy as np
+import gymnasium
 
-from controllers.abstract_controller import ParallelController
-from environments.abstract_environments import GroundTruthSupportEnv
-from models import AbstractGroundTruthModel, GroundTruthModel
-from misc.rolloutbuffer import RolloutBuffer
-from misc.seeding import Seeding
-from misc.parallel_utils import CloudPickleWrapper, clear_mpi_env_vars
+from icem.controllers.abstract_controller import ParallelController
+from icem.environments.abstract_environments import GroundTruthSupportEnv
+from icem.models import AbstractGroundTruthModel, GroundTruthModel
+from icem.misc.rolloutbuffer import RolloutBuffer
+from icem.misc.seeding import Seeding
+from icem.misc.parallel_utils import CloudPickleWrapper
 
 
 class ParallelGroundTruthModel(AbstractGroundTruthModel):
@@ -31,7 +30,7 @@ class ParallelGroundTruthModel(AbstractGroundTruthModel):
         ]
         for p in self.ps:
             p.daemon = True  # if the main process crashes, we should not cause things to hang
-            with clear_mpi_env_vars():
+            with gymnasium.vector.utils.misc.clear_mpi_env_vars():
                 p.start()
         for remote in self.work_remotes:
             remote.close()

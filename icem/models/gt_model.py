@@ -1,13 +1,12 @@
 from abc import ABCMeta, abstractmethod
 from typing import Sequence
 
-from misc.base_types import Controller
-from environments.abstract_environments import GroundTruthSupportEnv
-from .abstract_models import ForwardModelWithDefaults
-from environments import env_from_string
+from icem.misc.base_types import Controller
+from icem.environments.abstract_environments import GroundTruthSupportEnv
+from icem.models.abstract_models import ForwardModelWithDefaults
+from icem.environments import env_from_string
 import numpy as np
-from misc.rolloutbuffer import RolloutBuffer, Rollout
-from misc.seeding import Seeding
+from icem.misc.rolloutbuffer import RolloutBuffer, Rollout
 
 
 class AbstractGroundTruthModel(ForwardModelWithDefaults, metaclass=ABCMeta):
@@ -86,7 +85,15 @@ class GroundTruthModel(AbstractGroundTruthModel):
             obs = start_obs
             for h in range(horizon):
                 action = policy.get_action(obs, None)
-                next_obs, r, _, _ = self.simulated_env.step(action)
+                # CHANGES @ReHoss: Start - unpacking tuple (Gym vs. Gymnasium 5 arguments)
+                # next_obs, r, _, _ = self.simulated_env.step(action)
+                # This allows to ignore the last 2 or 3 arguments of the step function
+                tuple_step: tuple = self.simulated_env.step(action)
+                next_obs = tuple_step[0]
+                r = tuple_step[1]
+                # next_obs, r, _, _ = self.simulated_env.step(action)
+                # CHANGES @ReHoss: End
+
                 yield obs, next_obs, action, r
                 obs = next_obs
 

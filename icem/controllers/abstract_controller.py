@@ -4,10 +4,10 @@ from copy import deepcopy
 
 import numpy as np
 
-from misc.base_types import Controller, Env, ForwardModel
-from environments import env_from_string
-from environments.abstract_environments import GroundTruthSupportEnv
-from misc.rolloutbuffer import RolloutBuffer
+from icem.misc.base_types import Controller, Env, ForwardModel
+from icem.environments import env_from_string
+from icem.environments.abstract_environments import GroundTruthSupportEnv
+from icem.misc.rolloutbuffer import RolloutBuffer
 from .utils import ArrayIteratorParallelRowwise
 
 

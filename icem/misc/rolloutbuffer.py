@@ -11,7 +11,7 @@ class Rollout(object):
     allowed_fields = {"observations", "next_observations", "actions", "rewards", "dones",
                       "costs", "env_states", "model_states", "successes"}
 
-    def_delegators("_data", "__len__, __iter__, __getitem__, __repr__")
+    def_delegators("rollout_data", "__len__, __iter__, __getitem__, __repr__")
 
     def __init__(self, field_names, transitions: Iterable, strict_field_names=True):
         transitions = list(transitions)  # Generators might cause problem in inspection of first element
@@ -28,7 +28,7 @@ class Rollout(object):
         self.dtype = [(name, "f8", np.array(transitions[0][i]).shape) for i, name in data_idx]
         # self.dtype = [(name, "f8", np.array(item).shape) for name, item in zip(field_names, transitions[0]) if
         #               name not in ['env_states', 'model_states']]
-        self._data = np.array([tuple(x[i] for i, name in data_idx) for x in transitions], dtype=self.dtype)
+        self.rollout_data = np.array([tuple(x[i] for i, name in data_idx) for x in transitions], dtype=self.dtype)
         self.env_states = None
         if 'env_states' in field_names:
             idx = field_names.index('env_states')
@@ -51,7 +51,7 @@ class Rollout(object):
         return cls(field_names, transitions)
 
     def cost_to_go(self, t, discount=1.0):
-        return sum([self._data["rewards"][i] * discount ** (t - i) for i in range(t, len(self._data))])
+        return sum([self.rollout_data["rewards"][i] * discount ** (t - i) for i in range(t, len(self.rollout_data))])
 
 
 # noinspection PyAbstractClass
@@ -72,17 +72,17 @@ class _CustomList(abc.Sequence):
         array_list = list(array_list)
 
         self.max_size = max_size
-        self._list = []
+        self.list_rollouts = []
         self._ensure_data_fits(new_list=array_list)
 
-        self._list.extend(array_list)
+        self.list_rollouts.extend(array_list)
         self.modified = True
         self.number_of_latest_data_elems_added = len(array_list)
         self.list_number_of_latest_data_elems_added = [len(array_list)] if len(array_list) else []
 
     @property
     def _total_size(self):
-        return sum([len(elem) for elem in self._list])
+        return sum([len(elem) for elem in self.list_rollouts])
 
     def _resolve_overflow(self, overflow):
         if overflow <= 0:
@@ -90,12 +90,12 @@ class _CustomList(abc.Sequence):
         idx = 0
         space_freed = 0
         while space_freed < overflow:
-            assert idx < len(self._list)
+            assert idx < len(self.list_rollouts)
 
-            space_freed += len(self._list[idx])
+            space_freed += len(self.list_rollouts[idx])
             idx += 1
 
-        self._list = self._list[idx:]
+        self.list_rollouts = self.list_rollouts[idx:]
         self.modified = True
 
     def _ensure_data_fits(self, new_list):
@@ -112,7 +112,7 @@ class _CustomList(abc.Sequence):
     def extend(self, other_list):
         self._ensure_data_fits(other_list)
         self.number_of_latest_data_elems_added = len(other_list)
-        self._list.extend([item for item in other_list])
+        self.list_rollouts.extend([item for item in other_list])
         self.list_number_of_latest_data_elems_added.append(self.number_of_latest_data_elems_added)
         self.modified = True
 
@@ -275,7 +275,7 @@ class RolloutBuffer(abc.Sequence):
 
     @property
     def is_empty(self):
-        if self.rollouts._list == []:
+        if not self.rollouts.list_rollouts:  # Check if list is empty
             return True
         else:
             return False

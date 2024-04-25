@@ -1,13 +1,15 @@
 import json
+import logging
 import os
 import re
 import sys
-from collections import Mapping
+
+from collections.abc import Mapping
 from copy import deepcopy
-from warnings import warn
 import ast
 import smart_settings
 import numpy as np
+import builtins
 import inspect
 from contextlib import contextmanager
 import tqdm
@@ -51,10 +53,10 @@ def redirect_stdout__to_tqdm():
 
     try:
         # Globally replace print with new_print
-        inspect.builtins.print = new_print
+        builtins.print = new_print
         yield
     finally:
-        inspect.builtins.print = old_print
+        builtins.print = old_print
 
 
 def flatten_list_one_level(list_of_lists):
@@ -87,13 +89,13 @@ def delegates(to=None, keep=False):
         sig = inspect.signature(from_f)
         sigd = dict(sig.parameters)
         kwargs = sigd['kwargs']
-        del(sigd['kwargs'])
+        del sigd['kwargs']
         s2 = {k: v for k, v in inspect.signature(to_f).parameters.items()
               if v.default != inspect.Parameter.empty and k not in sigd}
         sigd.update(s2)
         if keep:
             sigd['kwargs'] = kwargs
-        from_f.__signature__ = sig.replace(parameters=sigd.values())
+        from_f.__signature__ = sig.replace(parameters=list(sigd.values()))
         return f
 
     return _f
@@ -128,7 +130,8 @@ def is_json_file(cmd_line):
     try:
         return os.path.isfile(cmd_line)
     except Exception as e:
-        warn('JSON parsing suppressed exception: ', e)
+        logging.error('Failed to parse command line: ', e)
+        # warn('JSON parsing suppressed exception: ', e)
         return False
 
 
@@ -137,12 +140,13 @@ def is_parseable_dict(cmd_line):
         res = ast.literal_eval(cmd_line)
         return isinstance(res, dict)
     except Exception as e:
-        warn('Dict literal eval suppressed exception: ', e)
+        logging.error('Failed to parse command line: ', e)
+        # warn('Dict literal eval suppressed exception: ', e)
         return False
 
 
 def resolve_params_hierarchy(init_params, verbose=True):
-    def to_list(inp, settings_filepath):
+    def to_list(inp):
         if not isinstance(inp, (list, tuple)):
             inp = [inp]
 
@@ -167,7 +171,7 @@ def resolve_params_hierarchy(init_params, verbose=True):
         settings_files.append(os.path.abspath(init_params.default_json))
     else:
         raise ValueError('Failed to parse command line')
-    inherits_from_query.extend(to_list(init_params.get('inherits_from', []), settings_file_path))
+    inherits_from_query.extend(to_list(init_params.get('inherits_from', [])))
     while inherits_from_query:
         inherited_settings_file = inherits_from_query.pop()
         if inherited_settings_file in settings_files:
@@ -178,7 +182,7 @@ def resolve_params_hierarchy(init_params, verbose=True):
         if params_hierarchy[-1].get('inherits_from', None) is None:
             continue
         settings_file_path = os.path.dirname(os.path.abspath(inherited_settings_file))
-        inherits_from_query.extend(to_list(params_hierarchy[-1].get('inherits_from', []), settings_file_path))
+        inherits_from_query.extend(to_list(params_hierarchy[-1].get('inherits_from', [])))
     params_hierarchy.append(init_params)
 
     params = {}
@@ -217,7 +221,7 @@ def compute_and_log_reward_info(rollouts, logger, prefix="", exec_time=None):
         prefix + "std_return": rollouts.std_return,
     }
     if exec_time is not None:
-        reward_info.update({prefix+"exec_time": exec_time})
+        reward_info.update({prefix + "exec_time": exec_time})
     try:
         reward_info[prefix + 'mean_success'] = np.mean(rollouts.as_array('successes')[:, -1])
         reward_info[prefix + 'std_success'] = np.std(rollouts.as_array('successes')[:, -1])
@@ -270,4 +274,3 @@ class ParamDict(dict):
 
     def get_pickleable(self):
         return recursive_objectify(self, make_immutable=False)
-

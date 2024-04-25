@@ -1,10 +1,5 @@
-import os
-import pickle
-
 import numpy as np
 from collections.abc import Iterable
-
-from misc.rolloutbuffer import RolloutBuffer
 
 
 def trajectory_reward_fn(reward_fn, states, actions, next_states):
@@ -45,7 +40,7 @@ class ArrayIteratorParallelRowwise(Iterable):
                 self.subset_time_idx = 0
                 self.array = self.array[self.num_parallel:]
         else:
-            assert(self.num_parallel == self.array.shape[0])  # fully parallel case
+            assert (self.num_parallel == self.array.shape[0])  # fully parallel case
             result = self.array[:, 0]
             self.array = self.array[:, 1:]
         return result

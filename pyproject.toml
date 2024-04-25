@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iCEM"
+version = "0.0.1"
+authors = [
+    { name = "Cristina Pinneri", email = "cristina.pinneri@tuebingen.mpg.de" },
+    { name = "Emilio Jorge", email = "emilio@jorge.se" },
+    { name = "Sebasian Blaes", email = "sebastianblaes@gmail.com" },
+    { name = "Hosseinkhan Boucher Rémy", email = "remy.hosseinkhan@universite-paris-saclay.fr" }
+]
+
+description = "iCEM updated version"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "al-logger @ git+https://github.com/s-bl/ALLogger.git",
+    "colorednoise",
+    "forwardable",
+    "gymnasium[all]",
+    "imageio",
+    "matplotlib",
+    "scikit-learn",
+    "scipy",
+    "seaborn",
+    "smart-settings @ git+https://git@github.com/martius-lab/smart-settings.git",
+    "torch",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+mujoco = ["mujoco-py", "dm_control"]
+
+[project.urls]
+Homepage = "https://github.com/ReHoss/iCEM"
+
+
+[tool.hatch.build]
+include = ["icem/*"]
+exclude = ["icem/settings"]
+
+#[tool.hatch.envs.default]
+#type = "virtual"
+#path = ".venv"
+
+[tool.hatch.metadata]
+allow-direct-references = true

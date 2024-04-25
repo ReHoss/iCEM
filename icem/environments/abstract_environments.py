@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 
-import gym.spaces as spaces
+import gymnasium.spaces as spaces
 import numpy as np
 
-from misc.base_types import Env
+from icem.misc.base_types import Env
 
 
 class EnvWithDefaults(Env, ABC):
@@ -95,7 +95,7 @@ class GoalSpaceEnvironmentInterface(ABC):
 
 
 class MaskedGoalSpaceEnvironmentInterface(GoalSpaceEnvironmentInterface, ABC):
-    def __init__(self, *, name, goal_idx, achieved_goal_idx, sparse: bool, threshold=0.1):
+    def __init__(self, *, goal_idx, achieved_goal_idx, sparse: bool, threshold=0.1):
         self.goal_idx = goal_idx
         self.achieved_goal_idx = achieved_goal_idx
         self.sparse = sparse

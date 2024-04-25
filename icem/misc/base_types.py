@@ -4,12 +4,12 @@ from typing import Sequence
 import numpy as np
 
 from abc import ABC, abstractmethod
-import gym
+import gymnasium
 
-from misc.rolloutbuffer import RolloutBuffer
+from icem.misc.rolloutbuffer import RolloutBuffer
 
 
-class Env(gym.Env, ABC):
+class Env(gymnasium.Env, ABC):
     goal_state = None
     goal_mask = None
     supports_live_rendering = True

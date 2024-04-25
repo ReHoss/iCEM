@@ -1,3 +1,4 @@
+import logging
 from importlib import import_module
 
 
@@ -16,10 +17,11 @@ def _check_for_mujoco_lock(env_package):
                     print(f"Deleting stale mujoco lock in {lock_file}")
                     os.remove(lock_file)
                 else:
-                    print(f"waiting for mujoco lock to be released (I kill it in {round(300-age_of_lock)}s) {lock_file}")
+                    print(f"waiting for mujoco lock to be released"
+                          f" (I kill it in {round(300 - age_of_lock)}s) {lock_file}")
                     time.sleep(5)
-        except:
-            pass
+        except Exception as exception:
+            logging.exception(exception)
 
 
 def env_from_string(env_string, **env_params):
