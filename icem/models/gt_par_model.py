@@ -85,7 +85,7 @@ class ParallelGroundTruthModel(AbstractGroundTruthModel):
             asked_remotes.append(remote)
         rollout_buffer_states_list = [remote.recv() for remote in asked_remotes]
         if "MujocoException" in rollout_buffer_states_list:
-            from mujoco_py import MujocoException
+            from mujoco import MujocoException
             raise MujocoException
         all_rollouts = list(chain.from_iterable([rollout_buffer.rollouts
                                                  for rollout_buffer, _s in rollout_buffer_states_list]))

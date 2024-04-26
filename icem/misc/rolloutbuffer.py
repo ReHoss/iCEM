@@ -62,7 +62,7 @@ class _CustomList(abc.Sequence):
     2) Remembers how many elements were added last
     3) Remembers whether it was 'recently'  modified"""
 
-    def_delegators("_list", "__len__, __iter__, __getitem__")
+    def_delegators("list_rollouts", "__len__, __iter__, __getitem__")
 
     def __init__(self, array_list, max_size=None):
         array_list = array_list or []

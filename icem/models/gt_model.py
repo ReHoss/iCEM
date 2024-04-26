@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Sequence
 
 from icem.misc.base_types import Controller
-from icem.environments.abstract_environments import GroundTruthSupportEnv
+from icem.environments import abstract_environments
 from icem.models.abstract_models import ForwardModelWithDefaults
 from icem.environments import env_from_string
 import numpy as np
@@ -21,11 +21,11 @@ class AbstractGroundTruthModel(ForwardModelWithDefaults, metaclass=ABCMeta):
 
 
 class GroundTruthModel(AbstractGroundTruthModel):
-    simulated_env: GroundTruthSupportEnv
+    simulated_env: abstract_environments.GroundTruthSupportEnv
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if isinstance(self.env, GroundTruthSupportEnv):
+        if isinstance(self.env, abstract_environments.GroundTruthSupportEnv):
             self.simulated_env = env_from_string(self.env.name, **self.env.init_kwargs)
             self.simulated_env.reset()
             self.is_trained = True

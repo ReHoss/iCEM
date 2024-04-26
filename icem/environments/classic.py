@@ -1,13 +1,19 @@
 import gymnasium.envs.classic_control as gym_classic
 import gymnasium.envs.box2d as gym_box
 
-from .abstract_environments import *
+import numpy as np
+
+from icem.environments import abstract_environments
 
 
 # from helpers import sin_and_cos_to_radians
 
 
-class DiscreteActionMountainCar(GroundTruthSupportEnv, DiscreteActionReshaper, gym_classic.MountainCarEnv):
+class DiscreteActionMountainCar(
+    abstract_environments.GroundTruthSupportEnv,
+    abstract_environments.DiscreteActionReshaper,
+    gym_classic.MountainCarEnv,
+):
     goal_state = np.array([[0.5, 0.0]])
     goal_mask = np.array([[1.0, 0.0]])
 
@@ -27,12 +33,16 @@ class DiscreteActionMountainCar(GroundTruthSupportEnv, DiscreteActionReshaper, g
         self.set_GT_state(observation)
 
 
-class DiscreteActionCartPole(DiscreteActionReshaper, gym_classic.CartPoleEnv):
+class DiscreteActionCartPole(
+    abstract_environments.DiscreteActionReshaper, gym_classic.CartPoleEnv
+):
     goal_state = np.array([[0.0, 0.0, 0.0, 0.0]])
     goal_mask = np.array([[1.0, 1.0, 1.0, 1.0]])
 
 
-class ContinuousMountainCar(GroundTruthSupportEnv, gym_classic.Continuous_MountainCarEnv):
+class ContinuousMountainCar(
+    abstract_environments.GroundTruthSupportEnv, gym_classic.Continuous_MountainCarEnv
+):
     goal_state = np.array([[0.5, 0.0]])
     goal_mask = np.array([[1.0, 0.0]])
 
@@ -47,12 +57,16 @@ class ContinuousMountainCar(GroundTruthSupportEnv, gym_classic.Continuous_Mounta
         self.set_GT_state(observation)
 
 
-class ContinuousLunarLander(EnvWithDefaults, gym_box.LunarLanderContinuous):
+class ContinuousLunarLander(
+    abstract_environments.EnvWithDefaults, gym_box.LunarLanderContinuous
+):
     goal_state = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1, 1]])
     goal_mask = np.array([[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0]])
 
 
-class ContinuousPendulum(GroundTruthSupportEnv, gym_classic.PendulumEnv):
+class ContinuousPendulum(
+    abstract_environments.GroundTruthSupportEnv, gym_classic.PendulumEnv
+):
     def set_GT_state(self, state):
         # cos_theta, sin_theta, theta_dot = state
         assert state.ndim == 1, "1-D np.array is expected in set_GT_state for Pendulum"
@@ -74,7 +88,11 @@ class ContinuousPendulum(GroundTruthSupportEnv, gym_classic.PendulumEnv):
         cos_theta, sin_theta, th_dot = observation.T
         # th = sin_and_cos_to_radians(sin_theta, cos_theta)
         th = np.arctan2(sin_theta, cos_theta)
-        costs = self.angle_normalize(th) ** 2 + 0.1 * th_dot ** 2 + 0.001 * (np.squeeze(action) ** 2)
+        costs = (
+            self.angle_normalize(th) ** 2
+            + 0.1 * th_dot**2
+            + 0.001 * (np.squeeze(action) ** 2)
+        )
 
         return costs
 
