@@ -22,7 +22,7 @@ class ControllerFactory:
 
         if controller_str in cls.valid_base_controllers:
             ctrl_package, ctrl_class = cls.valid_base_controllers[controller_str]
-            module = import_module(ctrl_package, "controllers")
+            module = import_module(ctrl_package, "icem.controllers")
             cls.controller = getattr(module, ctrl_class)
         else:
             raise ImportError(f"cannot find \'{controller_str}\' in known controller: "

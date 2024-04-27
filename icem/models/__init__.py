@@ -17,7 +17,7 @@ def forward_model_from_string(mod_str: str) -> type:  # Return a class not an in
     if mod_str in models_dict:
         if isinstance(models_dict[mod_str], tuple):
             mod_package, mod_class = models_dict[mod_str]
-            module = import_module(mod_package, "models")
+            module = import_module(mod_package, "icem.models")
             cls = getattr(module, mod_class)
             return cls
         else:
