@@ -61,7 +61,7 @@ def get_controllers(params, env, forward_model):
             env=env, forward_model=forward_model, **controller_params
         )
     else:
-        main_controller = controller_class(env=env, **controller_params)
+        main_controller = controller_class(env=env)
     if main_controller.needs_data:
         if (
             params.controller_data_sources is None

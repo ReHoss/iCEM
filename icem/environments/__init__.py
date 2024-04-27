@@ -58,7 +58,7 @@ def env_from_string(env_string, **env_params):
     if env_string in env_dict:
         env_package, env_class = env_dict[env_string]
         _check_for_mujoco_lock(env_package)
-        module = import_module(env_package, "environments")
+        module = import_module(env_package, "icem.environments")
         cls = getattr(module, env_class)
         env = cls(**env_params, name=env_string)
     else:
