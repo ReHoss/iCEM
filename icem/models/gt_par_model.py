@@ -16,20 +16,33 @@ from icem.misc.parallel_utils import CloudPickleWrapper
 class ParallelGroundTruthModel(AbstractGroundTruthModel):
     simulated_env: GroundTruthSupportEnv
 
-    def __init__(self, num_parallel=4, **kwargs):
+    def __init__(self, string_to_env_map, num_parallel=4, **kwargs):
         super().__init__(**kwargs)
         self.waiting = False
         self.closed = False
         self.num_parallel = num_parallel
 
         ctx = mp.get_context("fork")
-        self.remotes, self.work_remotes = zip(*[ctx.Pipe(duplex=True) for _ in range(self.num_parallel)])
+        self.remotes, self.work_remotes = zip(
+            *[ctx.Pipe(duplex=True) for _ in range(self.num_parallel)]
+        )
         self.ps = [
-            ctx.Process(target=worker, args=(Seeding.SEED, work_remote, remote, CloudPickleWrapper(self.env)))
+            ctx.Process(
+                target=worker,
+                args=(
+                    Seeding.SEED,
+                    work_remote,
+                    remote,
+                    CloudPickleWrapper(self.env),
+                    string_to_env_map,
+                ),
+            )
             for (work_remote, remote) in zip(self.work_remotes, self.remotes)
         ]
         for p in self.ps:
-            p.daemon = True  # if the main process crashes, we should not cause things to hang
+            p.daemon = (
+                True  # if the main process crashes, we should not cause things to hang
+            )
             with gymnasium.vector.utils.misc.clear_mpi_env_vars():
                 p.start()
         for remote in self.work_remotes:
@@ -56,19 +69,29 @@ class ParallelGroundTruthModel(AbstractGroundTruthModel):
         self.remotes[0].send(("get_state", observation))
         return self.remotes[0].recv()
 
-    def got_actual_observation_and_env_state(self, *, observation, env_state=None, model_state=None):
+    def got_actual_observation_and_env_state(
+        self, *, observation, env_state=None, model_state=None
+    ):
         if env_state is None:
             return self.reset(observation)
         else:
             return env_state
-        
-    def predict_n_steps(self, *, start_observations: np.ndarray, start_states: Sequence, policy: ParallelController,
-                        horizon) -> (RolloutBuffer, Sequence):
+
+    def predict_n_steps(
+        self,
+        *,
+        start_observations: np.ndarray,
+        start_states: Sequence,
+        policy: ParallelController,
+        horizon,
+    ) -> (RolloutBuffer, Sequence):
         # here we want to step through the envs in the direction of time
         if start_observations.ndim != 2:
             raise AttributeError("call predict_n_steps with a batch of states")
         if len(start_observations) != len(start_states):
-            raise AttributeError("number of observations and states have to be the same")
+            raise AttributeError(
+                "number of observations and states have to be the same"
+            )
         if start_states[0] is None:
             raise NotImplementedError
 
@@ -77,19 +100,30 @@ class ParallelGroundTruthModel(AbstractGroundTruthModel):
         chunks = [c for c in chunks if len(c) > 0]
         policies = [policy.get_parallel_policy_copy(c) for c in chunks]
         start_obs_chunks = [start_observations[c] for c in chunks]
-        start_state_chunks = [[start_states[i] for i in c] for c in chunks]  # lists do not support slicing
+        start_state_chunks = [
+            [start_states[i] for i in c] for c in chunks
+        ]  # lists do not support slicing
 
         asked_remotes = []
-        for remote, s_obs, s_states, sub_policy in zip(self.remotes, start_obs_chunks, start_state_chunks, policies):
+        for remote, s_obs, s_states, sub_policy in zip(
+            self.remotes, start_obs_chunks, start_state_chunks, policies
+        ):
             remote.send(("simulate", (s_obs, s_states, sub_policy, horizon)))
             asked_remotes.append(remote)
         rollout_buffer_states_list = [remote.recv() for remote in asked_remotes]
         if "MujocoException" in rollout_buffer_states_list:
-            from mujoco import MujocoException
-            raise MujocoException
-        all_rollouts = list(chain.from_iterable([rollout_buffer.rollouts
-                                                 for rollout_buffer, _s in rollout_buffer_states_list]))
-        all_states = list(chain.from_iterable([s for _, s in rollout_buffer_states_list]))
+            raise Exception("MujocoException")
+        all_rollouts = list(
+            chain.from_iterable(
+                [
+                    rollout_buffer.rollouts
+                    for rollout_buffer, _s in rollout_buffer_states_list
+                ]
+            )
+        )
+        all_states = list(
+            chain.from_iterable([s for _, s in rollout_buffer_states_list])
+        )
         return RolloutBuffer(rollouts=all_rollouts), all_states
 
     def save(self, path):
@@ -99,9 +133,9 @@ class ParallelGroundTruthModel(AbstractGroundTruthModel):
         pass
 
 
-def worker(seed, remote, parent_remote, env_wrapper):
+def worker(seed, remote, parent_remote, env_wrapper, string_to_env_map):
     parent_remote.close()
-    gt_model = GroundTruthModel(env=env_wrapper.x)
+    gt_model = GroundTruthModel(env=env_wrapper.x, string_to_env_map=string_to_env_map)
     Seeding.set_seed(seed, env=gt_model.env)
 
     try:
@@ -110,8 +144,12 @@ def worker(seed, remote, parent_remote, env_wrapper):
             if cmd == "simulate":
                 obs, states, policy, horizon = data
                 try:
-                    rollout_buffer, new_states = gt_model.predict_n_steps(start_observations=obs, start_states=states,
-                                                                          policy=policy, horizon=horizon)
+                    rollout_buffer, new_states = gt_model.predict_n_steps(
+                        start_observations=obs,
+                        start_states=states,
+                        policy=policy,
+                        horizon=horizon,
+                    )
                 except Exception as e:
                     if e.__class__.__name__ == "MujocoException":
                         remote.send("MujocoException")
@@ -121,7 +159,9 @@ def worker(seed, remote, parent_remote, env_wrapper):
                 remote.send((rollout_buffer, new_states))
             elif cmd == "predict":
                 obs, states, actions = data
-                remote.send(gt_model.predict(observations=obs, states=states, actions=actions))
+                remote.send(
+                    gt_model.predict(observations=obs, states=states, actions=actions)
+                )
             elif cmd == "get_state":
                 obs = data
                 remote.send(gt_model.get_state(obs))
@@ -134,6 +174,7 @@ def worker(seed, remote, parent_remote, env_wrapper):
         print("ParallelModel worker: got KeyboardInterrupt")
     finally:
         gt_model.close()
+
 
 # Some speed comparisons
 # HumanoidStandup: 10 steps a 100 traj, 100 horizon:

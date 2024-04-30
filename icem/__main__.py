@@ -5,12 +5,12 @@ import json
 import time
 import allogger
 from smart_settings.param_classes import recursive_objectify
+from icem import environments
 from icem.controllers import controller_from_string
 from icem.controllers.abstract_controller import (
     ModelBasedController,
     ParallelController,
 )
-from icem.environments import env_from_string
 from icem.misc.helpers import (
     tqdm_context,
     resolve_params_hierarchy,
@@ -126,7 +126,8 @@ def main():
     reward_info_full = {}
     average_return_history = deque(maxlen=10)
     min_time_required_to_solve = params.training_iterations
-    env = env_from_string(params.env, **params.env_params)
+    string_to_env_map = environments.env_from_string
+    env = string_to_env_map(params.env, params.env_params)
     logger = allogger.get_logger(scope="main")
     main_state = MainState(0, 0)
 
@@ -139,7 +140,8 @@ def main():
         None
         if params.forward_model == "none"
         else forward_model_from_string(params.forward_model)(
-            env=env, **params.forward_model_params
+            string_to_env_map=string_to_env_map,
+            env=env, **params.forward_model_params,
         )
     )
 
@@ -231,7 +233,9 @@ def main():
             )
 
     # Rollout Manager initialization
-    rollout_man = RolloutManager(env, params.rollout_params)
+    rollout_man = RolloutManager(
+        env, params.rollout_params, string_to_env_map=string_to_env_map
+    )
     t_main = tqdm_context(
         range(main_state.iteration, current_max_iterations),
         initial=main_state.iteration,
@@ -257,7 +261,7 @@ def main():
             number_of_rollouts = params.number_of_rollouts
             render = params.rollout_params.render
 
-        # Execute rollouts
+        # Execute rollouts, central part of the algorithm
         new_rollouts = RolloutBuffer(
             rollouts=rollout_man.sample(
                 controller,

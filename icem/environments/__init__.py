@@ -24,7 +24,7 @@ def _check_for_mujoco_lock(env_package):
             logging.exception(exception)
 
 
-def env_from_string(env_string, **env_params):
+def env_from_string(env_string, env_params):
     env_dict = {
         "DiscreteMountainCar": (".classic", "DiscreteActionMountainCar"),
         "DiscreteCartPole": (".classic", "DiscreteActionCartPole"),

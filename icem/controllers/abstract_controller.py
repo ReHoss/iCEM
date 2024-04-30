@@ -5,7 +5,6 @@ from copy import deepcopy
 import numpy as np
 
 from icem.misc.base_types import Controller, Env, ForwardModel
-from icem.environments import env_from_string
 from icem.environments.abstract_environments import GroundTruthSupportEnv
 from icem.misc.rolloutbuffer import RolloutBuffer
 from .utils import ArrayIteratorParallelRowwise
@@ -61,8 +60,16 @@ class StatefulController(Controller, ABC):
 class ModelBasedController(Controller, ABC):
     forward_model: ForwardModel
 
-    def __init__(self, *, forward_model, env: Env,  cost_along_trajectory, do_visualize_plan=None,
-                 use_env_reward_as_cost=False, **kwargs):
+    def __init__(
+        self,
+        *,
+        forward_model,
+        env: Env,
+        cost_along_trajectory,
+        do_visualize_plan=None,
+        use_env_reward_as_cost=False,
+        **kwargs,
+    ):
         super().__init__(env=env, **kwargs)
         self.forward_model = forward_model
         self.do_visualize_plan = do_visualize_plan
@@ -73,10 +80,13 @@ class ModelBasedController(Controller, ABC):
 
     def trajectory_cost_fn(self, cost_fn, rollout_buffer: RolloutBuffer):
         if self.use_env_reward_as_cost:
-            costs_path = -rollout_buffer.as_array('rewards')
+            costs_path = -rollout_buffer.as_array("rewards")
         else:
             costs_path = np.asarray(
-                [cost_fn(r["observations"], r["actions"], r["next_observations"]) for r in rollout_buffer]
+                [
+                    cost_fn(r["observations"], r["actions"], r["next_observations"])
+                    for r in rollout_buffer
+                ]
             )  # shape: [p,h]
 
         if self.cost_along_trajectory == "sum":
@@ -87,22 +97,29 @@ class ModelBasedController(Controller, ABC):
             return np.asarray(costs_path)[:, -1]
         else:
             raise NotImplementedError(
-                "Implement method {} to compute cost along trajectory".format(self.cost_along_trajectory)
+                "Implement method {} to compute cost along trajectory".format(
+                    self.cost_along_trajectory
+                )
             )
 
-    def visualize_plan(self, *, obs, state, acts):
-        """ visualizes a given plan. In mode 'last' it will render the end of the plan in a copy of the env.
-        In mode 'all' it will render the entire plan. """
+    def visualize_plan(self, *, obs, state, acts, string_to_env_map):
+        """visualizes a given plan. In mode 'last' it will render the end of the plan in a copy of the env.
+        In mode 'all' it will render the entire plan."""
         if self.do_visualize_plan is None or not self.do_visualize_plan:
             pass
-        if isinstance(self.env, GroundTruthSupportEnv) and self.env.supports_live_rendering:  # can't do it for dm suite
+        if (
+            isinstance(self.env, GroundTruthSupportEnv)
+            and self.env.supports_live_rendering
+        ):  # can't do it for dm suite
             if self.visualize_env is None:
                 if self.env.enable_rendering_at_init:
                     init_kwargs = deepcopy(self.env.init_kwargs)
-                    init_kwargs['enable_rendering'] = True
-                    self.visualize_env = env_from_string(self.env.name, **init_kwargs)
+                    init_kwargs["enable_rendering"] = True
+                    self.visualize_env = string_to_env_map(self.env.name, init_kwargs)
                 else:
-                    self.visualize_env = env_from_string(self.env.name, **self.env.init_kwargs)
+                    self.visualize_env = string_to_env_map(
+                        self.env.name, self.env.init_kwargs
+                    )
                 self.visualize_env.reset()
 
             if self.do_visualize_plan == "last":
@@ -116,16 +133,24 @@ class ModelBasedController(Controller, ABC):
 
                 for i, a in enumerate(acts):
                     new_obs, *_ = self.visualize_env.step(a)
-                    if i < len(obs) - 1 and np.linalg.norm(new_obs - obs[i + 1]) > 0.01 and not reported:
+                    if (
+                        i < len(obs) - 1
+                        and np.linalg.norm(new_obs - obs[i + 1]) > 0.01
+                        and not reported
+                    ):
                         reported = True
-                        print(f"simulation for visualization does not match mental model at {i}: ")
-                        print(f"orig: ", obs[i + 1])
-                        print(f"simu: ", new_obs)
+                        print(
+                            f"simulation for visualization does not match mental model at {i}: "
+                        )
+                        print("orig: ", obs[i + 1])
+                        print("simu: ", new_obs)
 
                     self.visualize_env.render()
                     time.sleep(1.0 / 25.0)
             else:
-                raise AttributeError("unknown mode for do_visualize_plan: Options: None, 'last','all'")
+                raise AttributeError(
+                    "unknown mode for do_visualize_plan: Options: None, 'last','all'"
+                )
 
 
 class ParallelController(Controller, ABC):
@@ -152,8 +177,7 @@ class TeacherController(Controller, ABC):
 
 class OpenLoopPolicy(ParallelController):
     def __init__(self, action_sequences: np.ndarray, *, env: Env = None):
-        """:param action_sequences: shape: [p, h, d]
-        """
+        """:param action_sequences: shape: [p, h, d]"""
         super().__init__(env=env)
         self.action_sequences = action_sequences
         self.action_sequence_iterator = None
@@ -166,7 +190,7 @@ class OpenLoopPolicy(ParallelController):
             return obs.shape[0]
 
     def get_action(self, obs: np.ndarray, state, mode="train"):
-        """ Every time get_action is called we take the actions from the actions_sequence and return it.
+        """Every time get_action is called we take the actions from the actions_sequence and return it.
         In case we are asked to return fewer (parallel) actions then we are set up for (p above)
         then we first continue this amount of roll-outs and then proceed to the next sub-batch
         :param state:
@@ -186,7 +210,9 @@ class OpenLoopPolicy(ParallelController):
 
 class MpcHook(ABC):
     @abstractmethod
-    def considered_trajectories(self, state, simulated_trajectories, costs, aux_costs, is_fine_tuned=False):
+    def considered_trajectories(
+        self, state, simulated_trajectories, costs, aux_costs, is_fine_tuned=False
+    ):
         pass
 
     @abstractmethod
