@@ -1,5 +1,5 @@
 # only fully abstract types should go here. Every thing with implementation goes one down in the hierarchy
-from typing import Sequence
+from typing import Sequence, Optional
 
 import numpy as np
 
@@ -46,8 +46,11 @@ class Controller(ABC):
     required_settings = []
 
     # noinspection PyUnusedLocal
-    def __init__(self, *, env: Env):
+    def __init__(self, *, env: Env, seed: Optional[int] = None):
         self.env = env
+        self.seed_controller = seed
+        self.np_random_generator = np.random.default_rng(seed=self.seed_controller)
+
 
     @abstractmethod
     def get_action(self, obs, state, mode="train"):

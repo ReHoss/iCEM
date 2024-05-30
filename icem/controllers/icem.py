@@ -67,9 +67,10 @@ class MpcICem(MpcController):
             # Important improvement
             # self.mean has shape h,d: we need to swap d and h because temporal correlations are in last axis)
             # noinspection PyUnresolvedReferences
-            samples = colorednoise.powerlaw_psd_gaussian(self.noise_beta, size=(num_traj, self.mean.shape[1],
-                                                                                self.mean.shape[0])).transpose(
-                [0, 2, 1])
+            samples = colorednoise.powerlaw_psd_gaussian(self.noise_beta,
+                                                         size=(num_traj, self.mean.shape[1], self.mean.shape[0]),
+                                                         random_state=self.np_random_generator
+                                                         ).transpose([0, 2, 1])
         else:
             samples = np.random.randn(num_traj, *self.mean.shape)
 
