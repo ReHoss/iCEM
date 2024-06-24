@@ -312,7 +312,11 @@ class RolloutManager:
                     img.save(video_frame_file)
                 else:
                     env.render()
-            state = RolloutManager.supply_env_state(env, use_env_states)
+            # state = RolloutManager.supply_env_state(env, use_env_states)
+            if policy.forward_model.env.name_env == "dynamics_estimator":
+                state = env.array_observation
+            else:
+                state = RolloutManager.supply_env_state(env, use_env_states)
             try:
                 ac = policy.get_action(ob, state=state, mode=mode)
                 # CHANGES @ReHoss: Start - unpacking tuple (Gym vs. Gymnasium 5 arguments)

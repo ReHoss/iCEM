@@ -39,7 +39,20 @@ class MpcController(ModelBasedController, StatefulController, ABC):
         if isinstance(self.forward_model, AbstractGroundTruthModel) and isinstance(self.env, GroundTruthSupportEnv):
             model_state = self.forward_model_state
             env_state = self.env.get_GT_state()
-            diff = self.env.compute_state_difference(model_state, env_state)
+            # Hack by Remy to support environments that do not have a state space
+            # Indded sometimes self.env is the groundTruth whil the forward model is
+            # a model of the observations dynamics
+            if model_state.shape[0] == env_state.shape[0]:
+                assert env_state.shape[0] == self.env.state_space.shape[0]
+                diff = self.env.compute_state_difference(model_state, env_state)
+            elif model_state.shape[0] == self.env.observation_space.shape[0]:
+                # In this case, the self.forward_model_state has probably the observation
+                # dimension
+                env_obs = self.env.array_observation
+                diff = self.env.compute_state_difference(model_state, env_state)
+            else:
+                raise ValueError("Model and env state have different dimensions")
+
             if diff > 1e-5:
                 print(f"Warning: internal GT model and actual env are not in sync: Difference: {diff}")
                 print("env state:", env_state)
