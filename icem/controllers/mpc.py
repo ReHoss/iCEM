@@ -49,7 +49,7 @@ class MpcController(ModelBasedController, StatefulController, ABC):
                 # In this case, the self.forward_model_state has probably the observation
                 # dimension
                 env_obs = self.env.array_observation
-                diff = self.env.compute_state_difference(model_state, env_state)
+                diff = self.env.compute_state_difference(model_state, env_obs)
             else:
                 raise ValueError("Model and env state have different dimensions")
 
