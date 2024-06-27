@@ -272,16 +272,32 @@ class RolloutManager:
         video=None,
         video_path=None,
     ):
-        if start_ob is not None and isinstance(env, GroundTruthSupportEnv):
-            if start_state is None:
-                env.set_state_from_observation(start_ob)
-            else:
-                env.set_GT_state(start_state)
-            ob = start_ob
+        # Trigger warning if both observation and state are provided
+        if start_ob is not None and start_state is not None:
+            warn(
+                "Both start_ob and start_state are provided. start_ob will be ignored."
+            )
+
+        if start_state is not None:
+            env.set_GT_state(start_state)
+        elif start_ob is not None and isinstance(env, GroundTruthSupportEnv):
+            env.set_state_from_observation(start_ob)
         else:
             ob = env.reset_with_mode(mode)
-            if isinstance(ob, tuple):
+            if isinstance(ob, tuple):  # Case of Gymnasium, 2 arguments returned
                 ob = ob[0]
+        ob = env.observation
+
+        # if start_ob is not None and isinstance(env, GroundTruthSupportEnv):
+        #     if start_state is None:
+        #         env.set_state_from_observation(start_ob)
+        #     else:
+        #         env.set_GT_state(start_state)
+        #     ob = start_ob
+        # else:
+        #     ob = env.reset_with_mode(mode)
+        #     if isinstance(ob, tuple):
+        #         ob = ob[0]
 
         if policy.has_state:
             policy.beginning_of_rollout(
