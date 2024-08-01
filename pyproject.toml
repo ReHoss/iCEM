@@ -31,7 +31,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "seaborn",
-    "smart-settings @ git+https://git@github.com/martius-lab/smart-settings.git",
+    "smart-settings @ git+https://git@github.com/martius-lab/smart-settings.git@72755515ce894f121b24fa2539dfd19508055500",
     "torch",
     "tqdm",
 ]
