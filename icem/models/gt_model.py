@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 from typing import Sequence
 
 from icem.misc.base_types import Controller
@@ -43,9 +44,12 @@ class GroundTruthModel(AbstractGroundTruthModel):
 
     def got_actual_observation_and_env_state(self, *, observation, env_state=None, model_state=None):
         if env_state is None:
+            raise NotImplementedError("This implementation does not support setting"
+                                      " the state from the observation")
             self.simulated_env.set_state_from_observation(observation)
             return self.simulated_env.get_GT_state()
         else:
+            # TODO: Add the case here for dynamics estimator?
             return env_state
 
     def set_state(self, state):
@@ -67,20 +71,31 @@ class GroundTruthModel(AbstractGroundTruthModel):
             return self.simulated_env.simulate(state_to_use(observations, states), actions)
         elif states is None:
             states = [None] * len(observations)
+
+        # Changes @ReHoss: Start - unpacking tuple (Gym vs. Gymnasium 5 arguments)
+        raise NotImplementedError
+        # Changes @ReHoss: End
         next_obs, next_states, rs = zip(*[self.simulated_env.simulate(state_to_use(obs, state), action)
                                           for obs, state, action in zip(observations, states, actions)])
         return np.asarray(next_obs), next_states, np.asarray(rs)
 
     def predict_n_steps(self, *, start_observations: np.ndarray, start_states: Sequence,
-                        policy: Controller, horizon) -> (RolloutBuffer, Sequence):
+                        policy: Controller, horizon, list_array_state_history: list[np.ndarray] | None = None) -> (RolloutBuffer, Sequence):
         # here we want to step through the envs in the direction of time
         if start_observations.ndim != 2:
             raise AttributeError(f"call predict_n_steps with a batches (shape: {start_observations.shape})")
         if len(start_observations) != len(start_states):
             raise AttributeError("number of observations and states have to be the same")
 
-        def perform_rollout(start_obs, start_state):
-            self.simulated_env.set_GT_state(start_state)
+        def perform_rollout(start_obs, start_state, list_array_state_history: list[np.ndarray] | None = None):
+            # Changes @ReHoss: Start - set the history here
+            # if isinstance(self.simulated_env,
+            self.simulated_env.set_GT_state(list_array_state_history[-1],
+                                            list_array_state_history)
+
+            assert np.allclose(start_obs, self.simulated_env.array_observation)
+            assert np.allclose(start_obs, self.simulated_env.list_array_obs_history[-1])
+            # Changes @ReHoss: End
             obs = start_obs
             for h in range(horizon):
                 action = policy.get_action(obs, None)
@@ -100,7 +115,9 @@ class GroundTruthModel(AbstractGroundTruthModel):
 
         def rollouts_generator():
             for obs_state in zip(start_observations, start_states):
-                trans = perform_rollout(*obs_state)
+                # Changes @ReHoss: Start - set the history here
+                trans = perform_rollout(obs_state[0], obs_state[1], deepcopy(list_array_state_history))
+                # Changes @ReHoss: End
                 yield Rollout(field_names=fields, transitions=trans), self.simulated_env.get_GT_state()
 
         rollouts, states = zip(*rollouts_generator())

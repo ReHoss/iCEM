@@ -40,8 +40,11 @@ class MpcController(ModelBasedController, StatefulController, ABC):
             model_state = self.forward_model_state
             env_state = self.env.get_GT_state()
             # Hack by Remy to support environments that do not have a state space
-            # Indded sometimes self.env is the groundTruth whil the forward model is
+            # Indeed sometimes self.env is the groundTruth while the forward model is
             # a model of the observations dynamics
+            array_model_state = np.array(model_state)
+            array_env_state = np.array(env_state)
+
             if model_state.shape[0] == env_state.shape[0]:
                 assert env_state.shape[0] == self.env.state_space.shape[0]
                 diff = self.env.compute_state_difference(model_state, env_state)
@@ -75,14 +78,39 @@ class MpcController(ModelBasedController, StatefulController, ABC):
         start_obs = np.array([obs] * num_parallel_trajs)  # shape:[p,d]
         start_states = [state] * num_parallel_trajs
         current_sim_policy = OpenLoopPolicy(action_sequences)
+        # CHANGES @ReHoss: The history function (initial condition)
+        if self.forward_model.env.name_env == "dynamics_estimator":
+            list_array_state_history = self.env.list_array_obs_history  # (The obs)
+        else:
+            list_array_state_history = self.env.list_array_state_history  # (The states)
+        # CHANGES @ReHoss: End
         return self.forward_model.predict_n_steps(start_observations=start_obs, start_states=start_states,
-                                                  policy=current_sim_policy, horizon=self.horizon)[0]
+                                                  policy=current_sim_policy, horizon=self.horizon,
+                                                  list_array_state_history=list_array_state_history)[0]
 
     def beginning_of_rollout(self, *, observation, state=None, mode):
-        if state is not None and isinstance(self.forward_model, AbstractGroundTruthModel):
+        # CHANGES @ReHoss: The forward model state is the observation
+
+        if not self.env.name_env == "dynamics_estimator":
             self.forward_model_state = state
         else:
-            self.forward_model_state = self.forward_model.reset(observation)
+            self.forward_model_state = observation  # TODO: Clean this part, remove that line...
+        # CHANGES @ReHoss: End
+        # if state is not None and isinstance(self.forward_model, AbstractGroundTruthModel):
+        #     pass
+            # CHANGES @ReHoss: The forward model state is the observation
+            # self.forward_model_state = state
+            # CHANGES @ReHoss: End
+        # else:
+            # CHANGES @ReHoss: This case should never be considered
+            # raise NotImplementedError("This case where the MPC 'forward model' state"
+            #                           "is None should never be considered."
+            #                           "Indeed, it now considered that an observation"
+            #                           "is always derived from an underlying state."
+            #                           "Consequently, setting an observation has no"
+            #                           "real meaning.")
+            # CHANGES @ReHoss: End
+            # self.forward_model_state = self.forward_model.reset(observation)
 
     def save(self, data):
         if self.save_data:

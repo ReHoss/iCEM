@@ -26,6 +26,8 @@ class MpcICem(MpcController):
         self.was_reset = False
 
     def beginning_of_rollout(self, *, observation, state=None, mode):
+        # @ReHoss: the observation will always be ignored in the present implementation,
+        # only the state matters.
         super().beginning_of_rollout(observation=observation, state=state, mode=mode)
         self.mean = self.get_init_mean(True)
         self.std = self.get_init_std(True)
@@ -107,13 +109,16 @@ class MpcICem(MpcController):
         if not self.was_reset:
             raise AttributeError("beginning_of_rollout() needs to be called before")
 
+        # Changes @ReHoss: Start - Swap order
+        # @ReHoss: Returns state.
+        self.forward_model_state = self.forward_model.got_actual_observation_and_env_state(
+            observation=obs, env_state=state, model_state=self.forward_model_state)
+
         if self.verbose:
             print(f"-------------------- {self.mean[0][0:6]}")
             if mode != "expert":  # in expert mode we are relabeling states that are not currently in env
                 self.check_model_consistency()
-
-        self.forward_model_state = self.forward_model.got_actual_observation_and_env_state(
-            observation=obs, env_state=state, model_state=self.forward_model_state)
+        # Changes @ReHoss: End
 
         best_traj_idx = None
         costs = [float("inf")]
@@ -134,7 +139,10 @@ class MpcICem(MpcController):
                     [action_sequences, action_seq_from_elites], axis=0
                 )  # shape [p+pe,h,d]
 
-            simulated_paths = self.simulate_trajectories(obs=obs, state=self.forward_model_state,
+            simulated_paths = self.simulate_trajectories(obs=obs,
+                                                         # Change @ReHoss: Start - add state
+                                                         state=self.forward_model_state,
+                                                         # Change @ReHoss: End
                                                          action_sequences=action_sequences)
 
             # keep elites from prev. iteration  # Important improvement
@@ -180,9 +188,11 @@ class MpcICem(MpcController):
             self.visualize_plan(obs=viz_obs, state=self.forward_model_state, acts=acts)
 
         # for stateful models, actually simulate step (forward model stores the state internally)
-        if self.forward_model_state is not None:
-            obs_, self.forward_model_state, rewards = \
-                self.forward_model.predict(observations=obs, states=self.forward_model_state, actions=executed_action)
+        # Changes @ReHoss - Mute the forward simulate part
+        # if self.forward_model_state is not None:
+        #     obs_, self.forward_model_state, rewards = \
+        #         self.forward_model.predict(observations=obs, states=self.forward_model_state, actions=executed_action)
+        # Changes @ReHoss - End
         return executed_action
 
     def compute_new_mean(self):

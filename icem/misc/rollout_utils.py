@@ -126,22 +126,22 @@ class RolloutManager:
     #   evaluation is then always parallel, training only if enabled
     def do_run_in_parallel(self, policy, mode):
         return (
-            self.num_parallel > 1
-            and isinstance(policy, ParallelController)
-            and (self.parallel_training or mode == "evaluate")
+                self.num_parallel > 1
+                and isinstance(policy, ParallelController)
+                and (self.parallel_training or mode == "evaluate")
         )
 
     def sample(
-        self,
-        policy: Controller,
-        render: bool,
-        mode="train",
-        name="",
-        start_ob=None,
-        start_state=None,
-        no_rollouts=1,
-        use_tqdm=True,
-        desc="rollout_num",
+            self,
+            policy: Controller,
+            render: bool,
+            mode="train",
+            name="",
+            start_ob=None,
+            start_state=None,
+            no_rollouts=1,
+            use_tqdm=True,
+            desc="rollout_num",
     ):
         if self.env.supports_live_rendering and render and self.record:
             self.video, self.video_path = self.setup_video(name)
@@ -210,7 +210,9 @@ class RolloutManager:
             "video_path": self.video_path,
         }
 
-    def sample_env(self, policy, logger, render: bool, mode, start_ob, start_state):
+    def sample_env(self, policy, logger, render: bool, mode,
+                   start_ob: None,
+                   start_state: None):
         # this method is also used in the parallel threads that is why it is purely functional (no state)
         return RolloutManager._sample(
             env=self.env,
@@ -224,7 +226,7 @@ class RolloutManager:
         )
 
     def par_sample(
-        self, policy, render: bool, mode, start_ob, start_state, no_rollouts=1
+            self, policy, render: bool, mode, start_ob, start_state, no_rollouts=1
     ):
         chunks = np.array_split(range(no_rollouts), self.num_parallel)
         chunks = [c for c in chunks if len(c) > 0]
@@ -236,7 +238,7 @@ class RolloutManager:
 
         asked_remotes = []
         for remote, sub_policy, sub_start_obs, sub_start_states in zip(
-            self.remotes, policies, start_obs_chunks, start_state_chunks
+                self.remotes, policies, start_obs_chunks, start_state_chunks
         ):
             args = {
                 "policy": sub_policy,
@@ -257,39 +259,41 @@ class RolloutManager:
 
     @staticmethod
     def _sample(
-        *,
-        env,
-        policy,
-        logger,
-        render: bool,
-        mode,
-        start_ob,
-        start_state,
-        use_env_states,
-        task_horizon,
-        use_tqdm,
-        only_final_reward,
-        video=None,
-        video_path=None,
+            *,
+            env,
+            policy,
+            logger,
+            render: bool,
+            mode,
+            start_ob,
+            start_state,
+            use_env_states,
+            task_horizon,
+            use_tqdm,
+            only_final_reward,
+            video=None,
+            video_path=None,
     ):
-        # Trigger warning if both observation and state are provided
-        if start_ob is not None and start_state is not None:
-            warn(
-                "Both start_ob and start_state are provided. start_ob will be ignored."
-            )
 
-        if start_state is not None:
-            env.set_GT_state(start_state)
-        elif start_ob is not None and isinstance(env, GroundTruthSupportEnv):
-            env.set_state_from_observation(start_ob)
-        else:
-            ob = env.reset_with_mode(mode)
-            if isinstance(ob, tuple):  # Case of Gymnasium, 2 arguments returned
-                ob = ob[0]
-        ob = env.observation
+        # # Trigger warning if both observation and state are provided
+        # if start_ob is not None and start_state is not None:
+        #     warn(
+        #         "Both start_ob and start_state are provided. start_ob will be ignored."
+        #     )
+        #
+        # if start_state is not None:
+        #     env.set_GT_state(start_state)
+        # elif start_ob is not None and isinstance(env, GroundTruthSupportEnv):
+        #     env.set_state_from_observation(start_ob)
+        # else:
+        #     ob = env.reset_with_mode(mode)
+        #     if isinstance(ob, tuple): # Case of Gymnasium, 2 arguments returned
+        #         ob = ob[0]
+        # ob = env.observation
 
         # if start_ob is not None and isinstance(env, GroundTruthSupportEnv):
         #     if start_state is None:
+        #         raise NotImplementedError("This is not considered.")
         #         env.set_state_from_observation(start_ob)
         #     else:
         #         env.set_GT_state(start_state)
@@ -297,12 +301,27 @@ class RolloutManager:
         # else:
         #     ob = env.reset_with_mode(mode)
         #     if isinstance(ob, tuple):
+        #         # Allows compat with gym envs ...
         #         ob = ob[0]
+
+        assert start_ob is None, "Not implemented for now"
+        assert start_state is None, "Not implemented for now"
+        assert use_env_states is not None, "Not implemented for now"
+
+        ob = env.reset_with_mode(mode)
+        if isinstance(ob, tuple):
+            # Allows compat with gym envs ...
+            ob = ob[0]
+        state = env.array_state
 
         if policy.has_state:
             policy.beginning_of_rollout(
+                # @ReHoss: Notably sets the forward_model_state
                 observation=ob,
-                state=RolloutManager.supply_env_state(env, use_env_states),
+                # CHANGES @ReHoss: Start - supply_env_state removed
+                # state=RolloutManager.supply_env_state(env, use_env_states),
+                state=state,
+                # CHANGES @ReHoss: End
                 mode=mode,
             )
         transitions = []
@@ -310,9 +329,9 @@ class RolloutManager:
         video_frame_file = None
         _return = 0.0
         for t in (
-            tqdm(range(task_horizon), desc="time_steps")
-            if use_tqdm
-            else range(task_horizon)
+                tqdm(range(task_horizon), desc="time_steps")
+                if use_tqdm
+                else range(task_horizon)
         ):
             if render:
                 if video is not None:
@@ -328,11 +347,10 @@ class RolloutManager:
                     img.save(video_frame_file)
                 else:
                     env.render()
-            # state = RolloutManager.supply_env_state(env, use_env_states)
-            if policy.forward_model.env.name_env == "dynamics_estimator":
-                state = env.array_observation
-            else:
-                state = RolloutManager.supply_env_state(env, use_env_states)
+
+            # CHANGES @ReHoss: Start - supply_env_state removed
+            state = env.get_GT_state()  # TODO: I think we always supply the GT state
+            # CHANGES @ReHoss: End
             try:
                 ac = policy.get_action(ob, state=state, mode=mode)
                 # CHANGES @ReHoss: Start - unpacking tuple (Gym vs. Gymnasium 5 arguments)

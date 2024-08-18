@@ -172,7 +172,7 @@ class GroundTruthSupportEnv(EnvWithDefaults, ABC):
 
     # simulates one step of the env by resetting to the given state first (not the observation, but the env-state)
     def simulate(self, state, action):
-        self.set_GT_state(state)
+        self.set_GT_state(state)   # Changes @ReHoss: It won't be ok for past dependent models
         new_obs, r, *_ = self.step(action)
         new_state = self.get_GT_state()
         return new_obs, new_state, r
